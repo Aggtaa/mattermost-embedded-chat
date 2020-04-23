@@ -1,0 +1,209 @@
+<!DOCTYPE html> 
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+    </head>
+    <body>
+        <div id="chat"></div>
+        <style>
+.embeddedChat {
+    width: 300px;
+    background-color: #ddd;
+    border: 1px solid #ccc;
+    height: 300px;
+    display: flex;
+    flex-flow: column;
+    padding: 4px;
+
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+}
+
+.embeddedChat > .historyContainer {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-width: 2px;
+    display: flex;
+    flex-direction: column-reverse;
+    padding: 2px;
+}
+
+.embeddedChat > .historyContainer, #chat > input {
+    width: 100%;
+    margin: none;
+    border: none;
+    box-sizing: border-box;
+    font: 11pt sans-serif;
+}
+
+.embeddedChat .history {
+    width: 100%;
+}
+
+.embeddedChat > input::placeholder::before {
+    content: 'Писать здесь';
+}
+
+.embeddedChat > input {
+    border: 2px solid transparent;
+    border-radius: 6px;
+    margin-top: 2px;
+    margin-right: 4px;
+    padding: 4px 10px;
+    flex: 0;
+    box-shadow: 1px 1px 1px rgba(0, 0, 0, 0.1);
+}
+
+.embeddedChat .history > .status {
+    color: grey;
+    width: 100%;
+    float: left;
+    font-size: 85%;
+    padding: 4px;
+}
+
+.embeddedChat .history > .message, .embeddedChat .history > .outgoingMessage {
+    max-width: 90%;
+    display: inline-block;
+    border-radius: 6px;
+    margin: 2px 0px;
+    padding: 4px 10px;
+    clear: both;
+    box-shadow: 1px 1px 1px rgba(0, 0, 0, 0.1);
+}
+
+.embeddedChat .history > .message {
+    background-color: #cfc;
+    float: right;
+}
+
+.embeddedChat .history > .outgoingMessage {
+    background-color: #fff;
+    float: left;
+}
+.embeddedChat .history > .outgoingMessage.pending {
+    opacity: 0.5;
+}
+
+
+        </style>
+        <script>
+
+class EmbeddedChat {
+
+    input;
+    history;
+    container;
+    ws;
+
+    constructor(container) {
+        if (typeof(container) === 'string')
+            container = document.querySelector(container);
+
+        this.container = container;
+        this.container.classList.add('embeddedChat');
+
+        this.historyContainer = document.createElement('div');
+        this.container.append(this.historyContainer);
+        this.historyContainer.classList.add('historyContainer');
+        this.history = document.createElement('div');
+        this.historyContainer.append(this.history);
+        this.history.classList.add('history');
+
+        this.input = document.createElement('input');
+        this.container.append(this.input);
+        this.input.addEventListener('keypress', (ev) => this.onInputKeyPress(ev));
+    }
+
+    onInputKeyPress(ev) {
+        if (ev.keyCode === 13) {
+            this.sendMessage(this.input.value);
+            this.input.value = '';
+        }
+        else
+            this.sendTyping();
+    }
+
+    openWs(callback) {
+        if (this.ws) {
+            if (this.ws.readyState === 1)
+                callback();
+            return;
+        }
+
+        this.ws = new WebSocket('wss://home.aggtaa.ru/chatTest/');
+        this.ws.onopen = (event) => {
+            this.addToHistory(Date.now(), 'status', 'Чат открыт');
+            callback();
+        };
+
+        this.ws.onmessage = (event) => {
+            const json = JSON.parse(event.data);
+            console.dir(json);
+            const message = document.getElementById('event' + json.id);
+            const text = json.data && json.data.replace(/[\u00A0-\u9999<>\&]/gim, (ch) => `&#${ch.charCodeAt(0)};`)
+
+            if (json.event === 'message')
+                this.addToHistory(json.id, 'message', text);
+            else if (json.event === 'message.delete') {
+                if (message)
+                    message.remove();
+            }
+            else if (json.event === 'message.update') {
+                if (message)
+                    message.innerHTML = text;
+            }
+            else if (json.event === 'id.remap') {
+                if (message) {
+                    message.setAttribute('id', 'event' + json.newId);
+                    message.classList.remove('pending');
+                }
+            }
+        };
+
+        this.ws.onclose = (event) => {
+            this.addToHistory(Date.now(), 'status', `Чат закрыт`);
+            console.debug(`Chat connection closed ${event.wasClean ? 'clean' : 'dirty'}, code ${event.code}, reason "${event.reason}"`);
+            delete this.ws;
+        };
+
+        this.ws.onerror = (error) => {    
+            this.addToHistory(Date.now(), 'status error', `Ошибка ${error.message}`);
+        };
+    }
+
+    isWsOpen() {
+        return this.ws && this.ws.readyState == 1; // 1 == WebSocket.OPEN
+    }
+
+    sendMessage(message) {
+        const id = 'outgoingMessage' + Date.now();
+        this.openWs(() => this.ws.send(JSON.stringify({event: 'message', id, time: Date.now(), data: message})));
+        this.addToHistory(id, 'outgoingMessage pending', message);
+    }
+
+    sendTyping() {
+        if (!this.isWsOpen())
+            return;
+
+        const lastTyping = this.lastTyping;
+        this.lastTyping = Date.now() / 1000;
+        if (!lastTyping || (this.lastTyping - lastTyping) >= 5)
+            this.ws.send(JSON.stringify({event: 'typing', time: Date.now()}));
+    }
+    
+    addToHistory(id, className, message) {
+        this.history.innerHTML += `<div id="event${id}" class="${className}">${message}</div>`;
+        //this.history.scrollTop = this.history.scrollHeight;
+    }
+}
+
+const ch = new EmbeddedChat('#chat');
+
+
+
+        </script>
+    </body>
+</html>
