@@ -1,12 +1,11 @@
 import { EventEmitter } from "events";
 
 import MattermostHttpClient, { HttpError } from "./httpClient";
-import { Channel } from "../../mattermost-redux/src/types/channels";
-import { UserProfile } from "../../mattermost-redux/src/types/users";
-import { Team } from "../../mattermost-redux/src/types/teams";
-import { Post } from "../../mattermost-redux/src/types/posts";
 import MattermostWebSocketClient from "./wsClient";
-import { join } from "path";
+import { UserProfile } from "mattermost-redux/types/users";
+import { Team } from "mattermost-redux/types/teams";
+import { Channel } from "mattermost-redux/types/channels";
+import { Post } from "mattermost-redux/types/posts";
 
 export default class MattermostClient extends EventEmitter {
 

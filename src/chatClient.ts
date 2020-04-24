@@ -1,7 +1,7 @@
 import MattermostClient from "./mattermost/client";
-import { UserProfile } from "./types/user";
-import { Team } from "./types/team";
-import { Channel } from "./types/channel";
+import { UserProfile } from "mattermost-redux/types/users";
+import { Team } from "mattermost-redux/types/teams";
+import { Channel } from "mattermost-redux/types/channels";
 
 export default class ChatClient {
     

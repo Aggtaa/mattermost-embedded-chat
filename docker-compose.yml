@@ -1,0 +1,9 @@
+version: '2'
+
+services:
+  mattermost-embedded-chat:
+    build: ./ # specify the directory of the Dockerfile
+    ports:
+      - "8087:8087" #specify ports forwarding
+    volumes:
+      - .:/app
